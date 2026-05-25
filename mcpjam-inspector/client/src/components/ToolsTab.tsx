@@ -117,6 +117,9 @@ export function ToolsTab({ serverConfig, serverName }: ToolsTabProps) {
     string | null
   >(null);
   const [lastToolName, setLastToolName] = useState<string | null>(null);
+  const [lastToolInput, setLastToolInput] = useState<Record<string, unknown>>(
+    {},
+  );
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
@@ -460,6 +463,7 @@ export function ToolsTab({ serverConfig, serverName }: ToolsTabProps) {
     try {
       const params = buildParameters();
       setLastToolName(selectedTool);
+      setLastToolInput(params);
 
       // Pass task options if executing as background task (MCP Tasks spec 2025-11-25)
       // Use task execution only if: server supports tasks AND (user checked option OR tool requires it)
@@ -678,6 +682,9 @@ export function ToolsTab({ serverConfig, serverName }: ToolsTabProps) {
       unstructuredValidationResult={unstructuredValidationResult}
       toolMeta={getToolMeta(lastToolName)}
       responseDurationMs={responseDurationMs}
+      serverId={serverName}
+      toolName={lastToolName ?? undefined}
+      toolInput={lastToolInput}
     />
   ) : (
     <div className="h-full flex items-center justify-center">

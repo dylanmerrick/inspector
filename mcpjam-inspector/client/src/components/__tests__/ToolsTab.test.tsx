@@ -57,6 +57,15 @@ vi.mock("@/lib/task-tracker", () => ({
   trackTask: vi.fn(),
 }));
 
+// Capture props passed to ResultsPanel so tests can assert on them
+let capturedResultsPanelProps: Record<string, unknown> | null = null;
+vi.mock("../tools/ResultsPanel", () => ({
+  ResultsPanel: (props: Record<string, unknown>) => {
+    capturedResultsPanelProps = props;
+    return <div data-testid="results-panel" />;
+  },
+}));
+
 // Mock ResizablePanelGroup to simplify rendering
 vi.mock("../ui/resizable", () => ({
   ResizablePanelGroup: ({ children }: { children: React.ReactNode }) => (
@@ -86,6 +95,7 @@ describe("ToolsTab", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedResultsPanelProps = null;
     mockListTools.mockResolvedValue({ tools: [] });
     mockGetTaskCapabilities.mockResolvedValue({
       supportsToolCalls: false,
@@ -505,6 +515,49 @@ describe("ToolsTab", () => {
 
       // After clicking, saved tab should have active styling
       expect(savedTabButton.className).toContain("text-primary");
+    });
+  });
+
+  describe("UI rendering props (lastToolInput)", () => {
+    it("passes serverId and toolName to ResultsPanel after execution", async () => {
+      const serverConfig = createServerConfig();
+      mockListTools.mockResolvedValue({
+        tools: [
+          {
+            name: "my-tool",
+            description: "desc",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+      });
+      mockExecuteToolApi.mockResolvedValue({
+        status: "completed",
+        result: { content: [{ type: "text", text: "done" }] },
+      });
+
+      render(<ToolsTab serverConfig={serverConfig} serverName="my-server" />);
+
+      await waitFor(() => {
+        expect(screen.getByText("my-tool")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("my-tool"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /^run/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /^run/i }));
+
+      await waitFor(() => {
+        expect(mockExecuteToolApi).toHaveBeenCalled();
+      });
+
+      // ResultsPanel should always receive serverId and toolName so it can
+      // render UI widgets when tool metadata indicates one is available.
+      expect(capturedResultsPanelProps?.serverId).toBe("my-server");
+      expect(capturedResultsPanelProps?.toolName).toBe("my-tool");
+      expect(capturedResultsPanelProps).toHaveProperty("toolInput");
     });
   });
 });
